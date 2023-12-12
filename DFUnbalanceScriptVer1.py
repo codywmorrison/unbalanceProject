@@ -80,7 +80,7 @@ def dataGrab(fPath):
         
         dataMatrix = [[dataA,dataB,dataC],[dataA2,dataB2,dataC2]] 
         
-        return dataMatrix##dataA, dataB, dataC, dataA2, dataB2, dataC2
+        return dataMatrix
 
 def feederGrab(txrN,monN,parPath):
     with PI.PIAFDatabase(database="PQ Monitors") as database:
@@ -107,7 +107,7 @@ def feederGrab(txrN,monN,parPath):
 
                     fPath = parPath+'\\'+fdrStr2+'\\'+txrStr2+'\\'+monN
 
-                    print('Found monitor filepath: '+fPath) ##add \n to format with searc print
+                    print('Found monitor filepath: '+fPath)
 
                     return fPath
                 
@@ -165,8 +165,6 @@ def extractTph(x,y,z):
         
         print('\n{d} points of data were cleaned'.format(d=points))
         print('Meaning {y} of {m} days are unusable data\n'.format(y=round(points/144), m=round(len(Va)/144)))
-    
-    ## maybe check if at any point it was because of 'No Data' or some other cleanse in the future and state what type of data was cleaned
             
     return appVa, appVb, appVc
 
@@ -276,7 +274,7 @@ def distributionProfile(Va,Vb,Vc,txrN,tID):
         Cpu[i] = Vc[i]/240
 
     ##fig, ax = plt.figure()
-    sns.kdeplot([Apu,Bpu,Cpu],legend=False)##,bins=15,kde=True) ##displot? ##clip=(0.95,1.05),
+    sns.kdeplot([Apu,Bpu,Cpu],legend=False)##,bins=15,kde=True) ##displot? ##clip=(0.95,1.05)
 
     
     
