@@ -8,7 +8,7 @@
 # This script was written as part of a student placement with Energy Queensland over the
 # university's vacation period of 2023/2024.
 #
-# V5 - 19/12/23
+# V6 - 5/1/23
 
 
 ##--- module importation---##
