@@ -724,12 +724,4 @@ print()
 
 print(str(start)+' filepaths accessed')
 
-print(str(failed)+' filepaths failed to form')
-
-##input next (otherwise stop operation maybe?)
-
-##maybe input for year like (18/19 or 22/23) -> could pull profile or maybe not -> could pull distribution of balance????? hmm
-
-##finalList[
-
-    
+print(str(failed)+' filepaths failed to form')  
