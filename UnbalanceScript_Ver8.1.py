@@ -12,7 +12,7 @@
 # no phase angle is needed for evaluating the neutral wire's current and it is determined with assumed
 # angles of 0, 120 and -120 (240) degrees.
 #
-# V8.1 - 16/1/23
+# V9 - 16/1/23
 
 
 ##--- module importation---##
@@ -76,7 +76,7 @@ def indataCheck(k,n):
         return k, n
 
 
-def dataGrab(fPath):
+def dataGrab(fPath,i):
     # This function uses PIConnect (an interface with Osisoft's PI) to pull voltage
     # and current data from Energex's PQ monitors. This function outputs a matrix with
     # all of the voltage and current data for a given period (atm 2018 and 2023 calendar years).
@@ -95,12 +95,32 @@ def dataGrab(fPath):
 
         ##---timeline to pull data---##
         intT = '10m'
-        
-        startT1 = '2018-07-02 00:00:00'
-        endT1 = '2019-6-30 00:00:00'
 
-        startT2 = '2022-07-02 00:00:00'
-        endT2 = '2023-6-30 00:00:00'
+        siteDF23 = np.genfromtxt('DFListV1.csv',dtype=str,delimiter=',',usecols=(11),skip_header=1)
+
+        sliceNo = len(siteDF23[i])-4
+        
+        yearInt = int(siteDF23[i][sliceNo:])
+
+        #print(b)
+        
+
+
+        startT1 = '{c}-07-01 00:00:00'.format(c = yearInt-2)
+        endT1 = '{d}-6-30 00:00:00'.format(d = yearInt-1)
+
+        startT2 = '{e}-07-01 00:00:00'.format(e = yearInt+1)
+        endT2 = '{f}-6-30 00:00:00'.format(f = yearInt+2)
+
+        
+        #startT1 = '2018-07-02 00:00:00'
+        # endT1 = '2019-6-30 00:00:00'
+        
+##        startT1 = '2017-07-02 00:00:00'
+##        endT1 = '2018-6-30 00:00:00'
+##
+##        startT2 = '2022-07-02 00:00:00'
+##        endT2 = '2023-6-30 00:00:00'
 
 
         ##---search and assign Voltage and Current data to matrix---##
@@ -252,7 +272,7 @@ def extract_3ph(x,y,z,d,e,f,genCount):
 
         ##---data cleaining for current---##
         if genCount > 1:
-            if round(x.row(i)[0],1) != round(x.row(i-1)[0],1) or round(x.row(i)[0]-x.row(i-1)[0]) != round(x.row(i)[0]-x.row(i-2)[0]):#(type(x[i]) is np.float64 or type(x[i]) is float) and 
+            if round(x.row(i)[0],2) != round(x.row(i-1)[0],2) or round(x.row(i)[0]-x.row(i-1)[0],2) != round(x.row(i)[0]-x.row(i-2)[0],2):#(type(x[i]) is np.float64 or type(x[i]) is float) and 
                 ##A[i]=x[i]
                 appA.append(x.row(i)[0])
                 appD.append(d.row(i)[0])
@@ -266,7 +286,7 @@ def extract_3ph(x,y,z,d,e,f,genCount):
                 time.append(str(refinedDatetime[i].time()))
 
         ##---data cleaning for voltage--## #(x.row(i)[0] > 120) and 
-        elif round(x.row(i)[0],1) != round(x.row(i-1)[0],1) or round(x.row(i)[0]-x.row(i-1)[0]) != round(x.row(i)[0]-x.row(i-2)[0]):#(type(x[i]) is np.float64 or type(x[i]) is float) and####(x[i] > 120) and
+        elif round(x.row(i)[0],2) != round(x.row(i-1)[0],2) or round(x.row(i)[0]-x.row(i-1)[0],2) != round(x.row(i)[0]-x.row(i-2)[0]):#(type(x[i],2) is np.float64 or type(x[i]) is float) and####(x[i] > 120) and
             ##A[i]=x[i]
             appA.append(x.row(i)[0])
             appD.append(d.row(i)[0])
@@ -312,7 +332,7 @@ def extract_3ph(x,y,z,d,e,f,genCount):
 
     return appA, appB, appC, appD, appE, appF, date, time
 
-def assign_to_unbalanceList(unbalance,c,k,txrN,ubtype,unbalanceList):
+def assign_to_unbalanceList(unbalance,c,k,txrN,ubtype,unbalanceList,monN):
     # This function assigns the calculated percenetile values to the finalList to be passed into
     # the main script to be printed at the end of the program.
 
@@ -321,7 +341,10 @@ def assign_to_unbalanceList(unbalance,c,k,txrN,ubtype,unbalanceList):
     percentiles = [1,5,25,50,75,95,99]
     
     for i in range(7):
-        percentileArr[i] = round(np.percentile(unbalance,percentiles[i]),2) 
+        percentileArr[i] = round(np.percentile(unbalance,percentiles[i]),2)
+        print(percentileArr[i])
+        percentileArr[i] = round(np.nanpercentile(unbalance,percentiles[i]),2)
+        print(percentileArr[i])
 
     ##---assigning to unbalanceList---##
 
@@ -330,14 +353,16 @@ def assign_to_unbalanceList(unbalance,c,k,txrN,ubtype,unbalanceList):
         year = '2022 to 2023'
     noDF = 'No. ' + str(k)
 
-    unbalanceList = np.append(unbalanceList,[[noDF,txrN,year,ubtype,percentileArr[0],percentileArr[1],percentileArr[2],
+    unbalanceList = np.append(unbalanceList,[[noDF,txrN,monN,year,ubtype,percentileArr[0],percentileArr[1],percentileArr[2],
                              percentileArr[3],percentileArr[4],percentileArr[5],percentileArr[6]]],axis=0)
+
+    
     
     median = percentileArr[3]
     
     return unbalanceList, median
 
-def calcUnbalance(Va,Vb,Vc,k,c,txrN,gCount,genCount,unbalanceList):
+def calcUnbalance(Va,Vb,Vc,k,c,txrN,gCount,genCount,unbalanceList,monN):
     # This function calculates the phase voltage unbalance rate, PVUR (NEMA / IEEE standard)
     # and voltage unbalance factor, VUF (IEEE 'True' standard), as well as, their distribution
     # and percentiles. It then calls distribution and profile graphing functions to print a
@@ -387,11 +412,11 @@ def calcUnbalance(Va,Vb,Vc,k,c,txrN,gCount,genCount,unbalanceList):
         n += 1
         
     ##---assigning percentiles---##
-    onePercentileVUF = round(np.percentile(VufNeg,1),2)
-    twofivePercentileVUF = round(np.percentile(VufNeg,25),2)
-    medianVUF = round(np.percentile(VufNeg,50),2)
-    sevenfivePercentileVUF = round(np.percentile(VufNeg,75),2)
-    nineninePercentileVUF = round(np.percentile(VufNeg,99),2)
+##    onePercentileVUF = round(np.nanpercentile(VufNeg,1),2)
+##    twofivePercentileVUF = round(np.nanpercentile(VufNeg,25),2)
+##    medianVUF = round(np.nanpercentile(VufNeg,50),2)
+##    sevenfivePercentileVUF = round(np.nanpercentile(VufNeg,75),2)
+##    nineninePercentileVUF = round(np.nanpercentile(VufNeg,99),2)
 
     ubtypeA = 'PVUR'
     ubtypeB = 'VUF'
@@ -402,7 +427,9 @@ def calcUnbalance(Va,Vb,Vc,k,c,txrN,gCount,genCount,unbalanceList):
     ##---assigning percentiles to the list for the summary---##
     if genCount > 1:
         ubtypeA = 'PCUR'
-    unbalanceList,median = assign_to_unbalanceList(LVUR,c,k,txrN,ubtypeA,unbalanceList)
+
+    for ii,kl in [[LVUR,ubtypeA],[VufNeg,ubtypeB]]:
+        unbalanceList,median = assign_to_unbalanceList(ii,c,k,txrN,kl,unbalanceList,monN)
 
     unbalanceDistribution(median,LVUR,txrN,ubtypeA,genCount)
     distributionProfile(Va,Vb,Vc,txrName,genCount)
@@ -533,7 +560,7 @@ def dataProfile(x,y,z,In,txrN,genCount):
 
     return
 
-def neutralCurrent(x,y,z,genCount,txrN,k,c,unbalanceList,date,time):
+def neutralCurrent(x,y,z,genCount,txrN,k,c,unbalanceList,date,time,monN):
     # This function calculates the neutral current of the system (at the PQ monitor).
     # The function also calcaultes the distribution and percentiles of the neutral current.
     # It then calls the unbalanceDistribution() function to print and save a distribution figure.
@@ -556,7 +583,7 @@ def neutralCurrent(x,y,z,genCount,txrN,k,c,unbalanceList,date,time):
 
     ubtype = 'Neutral Current'
 
-    unbalanceList,medianIn = assign_to_unbalanceList(In,c,k,txrN,ubtype,unbalanceList)
+    unbalanceList,medianIn = assign_to_unbalanceList(In,c,k,txrN,ubtype,unbalanceList,monN)
     unbalanceDistribution(medianIn,In,txrN,ubtype,genCount)
 
     #plot_neutralCurrent(In,date,time,genCount,txrN)
@@ -810,16 +837,16 @@ def plot_neutralCurrent(In,date,time,genCount,txrN):
 # View individual functions/methods for description
 
 ##---intialising matrix for percentiles---##
-unbalanceList = np.zeros((1,11),dtype=object)
-unbalanceList[0] = ['No. in DF23','TXR Name','Year','UF Type','p1','p5','p25','p50','p75','p95','p99']
+unbalanceList = np.zeros((1,12),dtype=object)
+unbalanceList[0] = ['No. in DF23','TXR Name','Mon Name','Year','UF Type','p1','p5','p25','p50','p75','p95','p99']
 
 ##---intialising counters for main script---##
 pCount = 0
 failed = 0
-i = 0
+i = 5
 recordI = i
 start = 0
-end = 50
+end = 3
 g=0
 
 ##---main script prints for number of sites given---##
@@ -831,8 +858,12 @@ for start in range(end):
 
     filePath = feederGrab(txrName,monName,parPath)
 
-    dataMatrix = dataGrab(filePath)
-
+    try:
+        dataMatrix = dataGrab(filePath,i)
+    except AttributeError:
+        print('atrribute error')
+        i+=1
+        
     genCount = 0
     gCount=0
     In = 0
@@ -850,7 +881,7 @@ for start in range(end):
             #if genCount >1:
                 
                 
-            In, medianIn, unbalanceList = neutralCurrent(D,E,F,genCount,txrName,i,pCount,unbalanceList,date,time)
+            In, medianIn, unbalanceList = neutralCurrent(D,E,F,genCount,txrName,i,pCount,unbalanceList,date,time,monName)
             print('medians currents')
             print(medianIn)
             print(np.median(In))
@@ -863,7 +894,7 @@ for start in range(end):
         
             if len(A) != 0:
             
-                Vuf,unbalanceList,pCount,LVUR,gCount = calcUnbalance(A,B,C,i,pCount,txrName,gCount,genCount,unbalanceList)
+                Vuf,unbalanceList,pCount,LVUR,gCount = calcUnbalance(A,B,C,i,pCount,txrName,gCount,genCount,unbalanceList,monName)
             
         ##distributionPercentile(finalList)  <---- to be done (distribution of the LVUR or VUF)
             
@@ -884,9 +915,9 @@ for start in range(end):
     except pa.lib.ArrowInvalid:
         print('Failed due to pyarrow exception\n')
         i+=1
-    except:
-        print('Failed due to unknown exception\m')
-        i+=1
+    #except:
+    #    print('Failed due to unknown exception\m')
+    #    i+=1
 
 ##---printing summary of program---##
 print('List of Unbalance Percentiles')
@@ -895,7 +926,7 @@ unbalanceDF = pnd.DataFrame(unbalanceList)
 #unbalanceDF.columns = unbalanceDF[0]
 #unbalanceDF = unbalanceDF[1:]
 
-nameDF = 'V8.1 siteUnbalance_{a} to {b}.csv'.format(a=recordI,b=i)
+nameDF = 'V9 YearSet siteUnbalance_{a} to {b}.csv'.format(a=recordI,b=i)
 
 #unbalanceDF.write_csv('testingpolars.csv',separator=',')
 
