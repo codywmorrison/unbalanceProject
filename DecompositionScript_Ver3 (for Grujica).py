@@ -6,7 +6,7 @@
 # This script was written as part of a student placement with Energy Queensland over the
 # university's vacation period of 2023/2024.
 #
-# V3 - 19/2/23
+# V4 - 29/2/23
 
 
 ##--- module importation---##
@@ -17,12 +17,12 @@ import matplotlib.pylab
 
 from PIconnect.PIConsts import RetrievalMode
 import numpy as np      ## <- numpy used for majority of mathematical operations
-import polars as pd     ## <- Pandas was originally used, but changed to Polars for speed
+import polars as pd     ## <- Pandas was originally used, but changed to Polars for faster dataframes
 import pyarrow as pa
 import pandas as pnd
 import cmath as cm
 import PIconnect as PI  ## <- PIconnect is the module for PI AF SDK
-import seaborn as sns   ## <- seaborn and scipy are used for statistics calculations
+import seaborn as sns   ## <- seaborn and scipy are used for statistics calculations, may not be included in decomp (only original)
 import pprint
 import datetime
 
@@ -76,6 +76,8 @@ def dataGrab(fPath,i):#,i
     
     ##---pulling data from Osisoft PI with formed filepath---##
     with PI.PIAFDatabase(database="PQ Monitors") as database:
+
+        #fPath = 'EQL\\SOUTHEAST\\BRISBANE SOUTH\\SSH22\\LGL3A\\SP1809-G\\SP1809-G-TR1'
         
         element = database.descendant(fPath)
         attvalues = iter(element.attributes.values())
@@ -158,7 +160,7 @@ def feederGrab(txrN,parPath):
             fdrStr = str(fdr)
             fdrStr1 = fdrStr.replace('PIAFElement(','')
             fdrStr2 = fdrStr1.replace(')','')
-            print(fdrStr2)
+            #print(fdrStr2)
 
             ##---transformer being searched---##            
             txrSRCH = database.descendant(parPath+'\\'+fdrStr2)
@@ -175,9 +177,9 @@ def feederGrab(txrN,parPath):
 
                     monN = monitorGrab(txrN,fPath)
 
-                    print('------------------------------------------------')
-                    print(monN)
-                    print('------------------------------------------------')
+                    #print('------------------------------------------------')
+                    #print(monN)
+                    #print('------------------------------------------------')
 
                     fPathF = parPath+'\\'+fdrStr2+'\\'+txrStr2+'\\'+monN
 
@@ -192,8 +194,8 @@ def monitorGrab(txrN,parPath):
     ##---searching database for transformer to get feeder, as feeder isn't given in csv---##
     with PI.PIAFDatabase(database="PQ Monitors") as database:
 
-        print('in monitorGrab')
-        print(parPath)
+        #print('in monitorGrab')
+        #print(parPath)
         monitorSRCH = database.descendant(parPath)
         for mtr in monitorSRCH.children.values():
 
@@ -201,7 +203,7 @@ def monitorGrab(txrN,parPath):
             mtrStr1 = mtrStr.replace('PIAFElement(','')
             mtrStr2 = mtrStr1.replace(')','')
 
-            print(mtrStr2)
+            #print(mtrStr2)
 
             return mtrStr2
 
@@ -217,7 +219,7 @@ def locationGrab(subN,locPath):
             locStr = str(loc)
             locStr1 = locStr.replace('PIAFElement(','')
             locStr2 = locStr1.replace(')','')
-            print(locStr2)
+            #print(locStr2)
 
             ##---transformer being searched---##            
             subSRCH = database.descendant(locPath+'\\'+locStr2)
@@ -250,13 +252,11 @@ def pathGrab(k):
     locPath = "\\".join([eqlName,regName])
     locName = locationGrab(subName,locPath)
 
-    print(locName)
 
     ##---forming/concatenating the filepath---##
     oPath = "\\".join([eqlName,regName,locName,subName])
     parPath = r'{}'.format(oPath)
 
-    print(parPath)
     
     #print('\nFound partial filepath from CSV: '+parPath+'\n')
     
@@ -277,7 +277,6 @@ def extract_3ph(x,y,z,d,e,f,genCount):
 
     dDF = pnd.DataFrame(d)
     d = pd.from_pandas(dDF)
-    
     eDF = pnd.DataFrame(e)
     e = pd.from_pandas(eDF)
     fDF = pnd.DataFrame(f)
@@ -296,8 +295,6 @@ def extract_3ph(x,y,z,d,e,f,genCount):
     rawDatetime = xDF.index.values.tolist()
     refinedDatetime = pnd.to_datetime(rawDatetime,unit='ns')
     refinedDatetime.columns = ['Date']
-    
-
     
     refinedDate = pnd.DataFrame()
     refinedDate['Month']= refinedDatetime.month
@@ -320,34 +317,10 @@ def extract_3ph(x,y,z,d,e,f,genCount):
     ##---cleaning data for calculation and graphing---##
     for i in range(len(A)-2):
         i+=1
-        #print(round(x[i]-x[i-2],1))
-        #print(x.row(i)[0])
         
-        
-        #if str(x.iloc[i]) != 'No Data' and type(x.iloc[i]) is  not np.float64 and type(x.iloc[i]) is  not float:
-        #    print(i)
-        #    print(type(x.iloc[i]))
-        #    print(x.iloc[i])
-
         ##---data cleaining for current---##
-        if genCount > 1:
             #if round(x.row(i)[0],1) != round(x.row(i-1)[0],1) or round(x.row(i)[0]-x.row(i-1)[0]) != round(x.row(i)[0]-x.row(i-2)[0]):
-            if round(x.row(i)[0],2) != round(x.row(i-1)[0],2) or round(x.row(i)[0]-x.row(i-1)[0],2) != round(x.row(i)[0]-x.row(i-2)[0],2):#(type(x[i]) is np.float64 or type(x[i]) is float) and 
-                ##A[i]=x[i]
-                appA.append(x.row(i)[0])
-                appD.append(d.row(i)[0])
-                ##B[i]=y[i]
-                appB.append(y.row(i)[0])
-                appE.append(e.row(i)[0])
-                ##C[i]=z[i]
-                appC.append(z.row(i)[0])
-                appF.append(f.row(i)[0])
-                date.append(refinedDate.row(i)[0])
-                time.append(str(refinedDatetime[i].time()))
-
-        ##---data cleaning for voltage--## #(x.row(i)[0] > 120) and
-        #elif round(x.row(i)[0],1) != round(x.row(i-1)[0],1) or round(x.row(i)[0]-x.row(i-1)[0]) != round(x.row(i)[0]-x.row(i-2)[0]):
-        elif round(x.row(i)[0],2) != round(x.row(i-1)[0],2) or round(x.row(i)[0]-x.row(i-1)[0],2) != round(x.row(i)[0]-x.row(i-2)[0],2):#(type(x[i]) is np.float64 or type(x[i]) is float) and####(x[i] > 120) and
+        if round(x.row(i)[0],2) != round(x.row(i-1)[0],2) or round(x.row(i)[0]-x.row(i-1)[0],2) != round(x.row(i)[0]-x.row(i-2)[0],2):#(type(x[i]) is np.float64 or type(x[i]) is float) and 
             ##A[i]=x[i]
             appA.append(x.row(i)[0])
             appD.append(d.row(i)[0])
@@ -360,24 +333,6 @@ def extract_3ph(x,y,z,d,e,f,genCount):
             date.append(refinedDate.row(i)[0])
             time.append(str(refinedDatetime[i].time()))
 
-    
-##    NeutralSave = pnd.DataFrame(np.transpose([appA,appB,appC]))
-##    #print(NeutralSave)
-##    #unbalanceDF.columns = unbalanceDF[0]
-##
-##    nameDF = 'savedneutral.csv'
-##
-##    NeutralSave.to_csv(nameDF,',')
-##
-##    NeutralSave = pnd.DataFrame(np.transpose([appD,appE,appF]))
-##    #print(NeutralSave)
-##    #unbalanceDF.columns = unbalanceDF[0]
-##
-##    nameDF = 'savedvolt.csv'
-##
-##    NeutralSave.to_csv(nameDF,',')
-
-            
     ##---printing data cleaning output---###
     points = round(len(A)-len(appA))
     
@@ -396,29 +351,29 @@ def DPIB_Calculation(Pa,Pb,Pc,dValue,a,txrName):
 
     def plotDPIB(DPIB,a,txrName,titleA):
         pass
-##        if a == 1:
-##            time = '2018-2019'
-##                
-##        elif a != 1:
-##            time = '2022-2023'
-##        
-##        figDPIB = plt.figure()
-##        
-##        xlim1 = 1000 #~1 week = 1000 points
-##        plt.xlim([xlim1,xlim1+250])
-##        
-##        plt.plot(DPIB)
-##
-##        plt.title('{b}: {c} Sample Imbalance Profile with SIB and RIB Components - {a}'.format(a=titleA,b=txrName,c=time))
-##        plt.xlabel('Time, 1 point = 10 minutes')
-##        plt.ylabel('Degree of Power Imbalance (DPIB)')
-##
-##        #plt.savefig('at1/{b}/Decomposition Example/{a}.png'.format(a=txrName+' '+time+' Sample Imbalance',b=txrName),dpi=1200)
-##        #plt.savefig('Decomp/{b}/{a}.png'.format(a=txrName+' '+time+' Sample Imbalance',b=txrName),dpi=1200)
-##        plt.savefig('Decomp/A. Decomp Images/{a}.png'.format(a=txrName+' '+time+' Sample Imbalance',b=txrName),dpi=1200)
-##        
-##        plt.close()
-##        #plt.show()  
+        if a == 1:
+            time = '2018-2019'
+                
+        elif a != 1:
+            time = '2022-2023'
+        
+        figDPIB = plt.figure()
+        
+        xlim1 = 1000 #~1 week = 1000 points
+        plt.xlim([xlim1,xlim1+250])
+        
+        plt.plot(DPIB)
+
+        plt.title('{b}: {c} Sample Imbalance Profile with SIB and RIB Components - {a}'.format(a=titleA,b=txrName,c=time))
+        plt.xlabel('Time, 1 point = 10 minutes')
+        plt.ylabel('Degree of Power Imbalance (DPIB)')
+
+        #plt.savefig('at1/{b}/Decomposition Example/{a}.png'.format(a=txrName+' '+time+' Sample Imbalance',b=txrName),dpi=1200)
+        #plt.savefig('Decomp/{b}/{a}.png'.format(a=txrName+' '+time+' Sample Imbalance',b=txrName),dpi=1200)
+        plt.savefig('Decomp/A. Decomp Images/{a}.png'.format(a=txrName+' '+time+' Sample Imbalance',b=txrName),dpi=1200)
+        
+        plt.close()
+        #plt.show()  
     
 
     def DPIB_max(Pa,Pb,Pc):
@@ -455,7 +410,7 @@ def DPIB_Calculation(Pa,Pb,Pc,dValue,a,txrName):
         titleA = 'Definite-Order'
 
         for i in range(len(DPIBmax)):
-            DPIBres[i] = np.sqrt(DPIBmax[i]**2+DPIBmax[i]**2)
+            DPIBres[i] = np.sqrt(DPIBmax[i]**2+DPIBmin[i]**2) #had left as DPIBmax twice instead of both for a while... :/
 
         DPIB = np.array([DPIBres,DPIBmax,DPIBmin]).T
 
@@ -484,41 +439,48 @@ def currentImbalanceDecomposition(Pa,Pb,Pc,txrName,a):
 
     def plotTestImbalance(SIB,RIB,Px,Py,Pz,dValue,txrName,a):
 
-        return 
-##        fig = plt.figure(figsize=(16,9))
-##        time = "24-25"
-##        titleA = 'Random'
-##        if dValue == 1:
-##            titleA = 'Definite-Order'
-##        elif dValue == 2:
-##            titleA = 'Definite-Max'
-##        elif dValue == 3:
-##            titleA = 'Definite-Min'
-##        else:
-##            titleA = 'Random'
-##
-##           
-##        plt.title('{b}: Sample Power Profile with SIB and RIB Components - {a}'.format(a=titleA,b=txrName))
-##
-##        xlim1 = 500 #~1 week = 1000 points
-##        plt.xlim([xlim1,xlim1+250]) 
-##        
-##        plt.plot(np.array([Px,Py,Pz]).T/1000,label=['Non-decomposed Power A','Non-decomposed Power B','Non-decomposed Power C'])
-##        plt.plot(SIB/1000,label=['Systematic Imbalance A','Systematic Imbalance B','Systematic Imbalance C'])
-##        plt.plot(RIB/1000,label=['Random Imbalance A','Random Imbalance B','Random Imbalance C'])
-##        
-##        plt.legend()
-##        plt.xlabel('Time, 1 point = 10 minutes')
-##        plt.ylabel('Power, in kVA')
-##        
-##        #plt.savefig('at1/{b}/Decomposition Example/{a}.png'.format(a=txrName+' '+time+' Sample Profile',b=txrName),dpi=1200)
-##        #plt.savefig('Decomp/{b}/{a}.png'.format(a=txrName+' '+time+' Sample Profile',b=txrName),dpi=1200)
-##        plt.savefig('{a}.png'.format(a=txrName+' '+time+' Sample Profile',b=txrName),dpi=1200)#Decomp/A. Decomp Images/     <--- this was removed
-##                   
-##        plt.close()
-##        plt.show()
-##
-##        return a
+         
+        
+        time = "24-25"
+        titleA = 'Random'
+        if dValue == 1:
+            titleA = 'Definite-Order'
+        elif dValue == 2:
+            titleA = 'Definite-Max'
+        elif dValue == 3:
+            titleA = 'Definite-Min'
+        else:
+            titleA = 'Random'
+
+           
+        
+
+        #xlim1 = 500 #~1 week = 1000 points
+
+        for xlim1 in [100,5000]:
+            
+            fig = plt.figure(figsize=(16,9))
+
+            plt.title('{b}: Sample Power Profile with SIB and RIB Components - {a}'.format(a=titleA,b=txrName))
+            
+            plt.xlim([xlim1,xlim1+400]) 
+            
+            plt.plot(np.array([Px,Py,Pz]).T/1000,label=['Non-decomposed Power A','Non-decomposed Power B','Non-decomposed Power C'])
+            plt.plot(SIB/1000,label=['Systematic Imbalance A','Systematic Imbalance B','Systematic Imbalance C'])
+            plt.plot(RIB/1000,label=['Random Imbalance A','Random Imbalance B','Random Imbalance C'])
+            
+            plt.legend()
+            plt.xlabel('Time, 1 point = 10 minutes')
+            plt.ylabel('Power, in kVA')
+            
+            #plt.savefig('at1/{b}/Decomposition Example/{a}.png'.format(a=txrName+' '+time+' Sample Profile',b=txrName),dpi=1200)
+            #plt.savefig('Decomp/{b}/{a}.png'.format(a=txrName+' '+time+' Sample Profile',b=txrName),dpi=1200)
+            plt.savefig('{a}.png'.format(a=txrName+' '+time+' Sample Profile '+str(xlim1),b=txrName),dpi=1200)#Decomp/A. Decomp Images/     <--- this was removed
+                       
+            plt.close()
+        #plt.show()
+
+        return a
 
     def decomposition(Px,Py,Pz,dValue,txrName,a):
     # Please see 'Three Phase Power Imbalance Decomposition
@@ -615,46 +577,95 @@ def currentImbalanceDecomposition(Pa,Pb,Pc,txrName,a):
 
         return SIB, RIB
 
+
+    # start of decomposition() function #
     #----if elif catchers----#
 
-    print('passed into cIB():')
+    #print('passed into cIB():')
           
-    d = 0.02 # <- Academic paper recommends 5% measurement error
-    tHold = 0.50
+    d = 0.05 # <- Academic paper recommends 5% measurement error
+    tHold = 0.50 # <- this is the threshold for 'majority' 
 
-    mxa = 0
+    mxa = 0 # <- mxa = tally for if A phase is the max (i.e. greatest phase)
     mxb = 0
     mxc = 0
 
-    mna = 0
+    mna = 0 # <- mna = tally for if A phase is the min (i.e. smallest phase)
     mnb = 0
     mnc = 0
 
+    mxa_mnb = 0
+    mxa_mnc = 0
+
+    mxb_mna = 0
+    mxb_mnc = 0
+
+    mxc_mna = 0
+    mxc_mnb = 0
+
+    
     for i in range(len(Pa)):
     #----definite-max----#
+    # The if statement compares if the phase, A in this example, is the greatest from phase A,
+    # phase B, and phase C, when phase B and phase C are scaled up according to the error margin
 
         if Pa[i] == max(Pa[i],Pb[i]*(1+d),Pc[i]*(1+d)):
             mxa += 1
                
-        elif Pb[i] == max(Pb[i],Pa[i]*(1+d),Pc[i]*(1+d)):
+        if Pb[i] == max(Pb[i],Pa[i]*(1+d),Pc[i]*(1+d)):
             mxb += 1
   
-        elif Pc[i] == max(Pc[i],Pa[i]*(1+d),Pb[i]*(1+d)):
+        if Pc[i] == max(Pc[i],Pa[i]*(1+d),Pb[i]*(1+d)):
             mxc += 1
 
     #----definite-min----#
+    # Same as definite max, but for minimum
             
-        elif Pa[i] == min(Pa[i],Pb[i]*(1+d),Pc[i]*(1+d)):
+        if Pa[i] == min(Pa[i],Pb[i]*(1-d),Pc[i]*(1-d)):
             mna += 1
             
-        elif Pb[i] == min(Pb[i],Pa[i]*(1+d),Pc[i]*(1+d)):
+        if Pb[i] == min(Pb[i],Pa[i]*(1-d),Pc[i]*(1-d)):
             mnb += 1
             
-        elif Pc[i] == min(Pc[i],Pa[i]*(1+d),Pb[i]*(1+d)):
+        if Pc[i] == min(Pc[i],Pa[i]*(1-d),Pb[i]*(1-d)):
             mnc += 1
+
+    #----definite-ord----#
+    # this was not included in the original decomposition... the article suggests this, but I am unsure.
+            
+        if Pa[i] == max(Pa[i],Pb[i]*(1+d),Pc[i]*(1+d)) and Pb[i] == min(Pb[i],Pa[i]*(1-d),Pc[i]*(1-d)):
+            mxa_mnb += 1
+
+        if Pa[i] == max(Pa[i],Pb[i]*(1+d),Pc[i]*(1+d)) and Pc[i] == min(Pc[i],Pa[i]*(1-d),Pb[i]*(1-d)):
+            mxa_mnc += 1
+
+        
+        if Pb[i] == max(Pb[i],Pa[i]*(1+d),Pc[i]*(1+d)) and Pa[i] == min(Pa[i],Pb[i]*(1-d),Pc[i]*(1-d)):
+            mxb_mna += 1
+
+        if Pb[i] == max(Pb[i],Pa[i]*(1+d),Pc[i]*(1+d)) and Pc[i] == min(Pc[i],Pb[i]*(1-d),Pa[i]*(1-d)):
+            mxb_mnc += 1
+
+
+        if Pc[i] == max(Pc[i],Pa[i]*(1+d),Pb[i]*(1+d)) and Pa[i] == min(Pa[i],Pb[i]*(1-d),Pc[i]*(1-d)):
+            mxc_mna += 1
+
+        if Pc[i] == max(Pc[i],Pa[i]*(1+d),Pb[i]*(1+d)) and Pb[i] == min(Pb[i],Pa[i]*(1-d),Pc[i]*(1-d)):
+            mxc_mnb += 1
+
+            
+
+    # These lists are made for referencing strings to the mx and mn values
+    # (identifying what is max and min and what to pass to functions for decomposition)
+    
+##    maxList = [['Max A', 'Max B', 'Max C'],[mxa, mxb, mxc],['Pa','Pb','Pc']]
+##    minList = [['Min A', 'Min B', 'Min C'],[mna, mnb, mnc],['Pa','Pb','Pc']]
 
     maxList = [['Max A', 'Max B', 'Max C'],[mxa, mxb, mxc],['Pa','Pb','Pc']]
     minList = [['Min A', 'Min B', 'Min C'],[mna, mnb, mnc],['Pa','Pb','Pc']]
+    ordList = [['Ord AB', 'Ord AC', 'Ord BA', 'Ord BC', 'Ord CA', 'Ord CB'],
+               [mxa_mnb, mxa_mnc, mxb_mna, mxb_mnc, mxc_mna, mxc_mnb],
+               ['Ord AB', 'Ord AC', 'Ord BA', 'Ord BC', 'Ord CA', 'Ord CB']]
 
 
     #maxList = [['mxa', 'mxb', 'mxc'],[50, 25, 1000],['Pa','Pb','Pc']]
@@ -674,11 +685,41 @@ def currentImbalanceDecomposition(Pa,Pb,Pc,txrName,a):
     Pz = 0
 
     arrP = [np.mean(Pa),np.mean(Pb),np.mean(Pc)]
-    
-    for m in range(3):
-        for n in range(3):       
-            print(str(round((maxList[1][m]+minList[1][n])/total*100,1))+'%')
 
+
+    print('\nAll possible ORDERED model fit percentages (higher % means better model/fit):')
+    for m in range(3):
+        for n in range(3):
+            if m != n:
+                # when m == n, it is max a, min a... can't do that
+                print(str(round((maxList[1][m]+minList[1][n])/total*100,1))+'%')
+                
+##            if m == n:    
+##                #print('t')
+##            else:
+##                print(str(round((maxList[1][m]+minList[1][n])/total*100,1))+'%')
+
+    print('\nAll possible MAXIMUM model fit percentages (higher % means better model/fit):')
+    for m in range(3):     
+        print(str(round((maxList[1][m])/total*100,1))+'%')
+
+    print('\nAll possible MINIMUM model fit percentages (higher % means better model/fit):')
+    for n in range(3):       
+        print(str(round((minList[1][n])/total*100,1))+'%')
+
+    print('\nTest - All possible ORDERED model fit percentages (higher % means better model/fit):')
+    for a in range(6):       
+        print(str(round((ordList[1][a])/total*100,1))+'%')
+
+    print('')
+
+
+
+##    print((maxList[1][0]+minList[1][0])/total*100,(maxList[1][1]+minList[1][0])/total*100,(maxList[1][2]+minList[1][0])/total*100)
+##    print((maxList[1][0]+minList[1][1])/total*100,(maxList[1][1]+minList[1][1])/total*100,(maxList[1][2]+minList[1][1])/total*100)
+##    print((maxList[1][0]+minList[1][2])/total*100,(maxList[1][1]+minList[1][2])/total*100,(maxList[1][2]+minList[1][2])/total*100)
+##    pause
+##    print('')
     
     for m in range(3):
 
@@ -698,10 +739,10 @@ def currentImbalanceDecomposition(Pa,Pb,Pc,txrName,a):
           
             if (maxList[1][m]+minList[1][n])/total >= tHold and \
                arrSl == max(arrSl,(1+d)*arrLf[0],(1+d)*arrLf[1]) and \
-               arrSl2 == min(arrSl2,(1-d)*arrLf2[0],(1-d)*arrLf2[1]):
+               arrSl2 == min(arrSl2,(1-d)*arrLf2[0],(1-d)*arrLf2[1]):       # <- this if statement check if all 3 criteria for an ordered class#maxList[1][m]+minList[1][n]
 
                 print(maxList[0][m]+' and '+minList[0][n]+' Definite-Order Scenario')
-                print(str(round((maxList[1][m]+minList[1][n])/total*100,1))+'%')
+                print(str(round((maxList[1][m]+minList[1][n])/total*100,1))+'% - found')
                 Lc = 1
                 print(str(maxList[2][m]))
 
@@ -766,7 +807,7 @@ def currentImbalanceDecomposition(Pa,Pb,Pc,txrName,a):
                     break
 
                 print(maxList[0][m]+' Definite-Maximum Scenario')
-                print(maxList[1][m]/total)
+                print(str(round(maxList[1][m]/total*100,1))+'% - found')#maxList[1][m]/total)
                 Lc = 1
 
                 dValue = 2
@@ -804,7 +845,7 @@ def currentImbalanceDecomposition(Pa,Pb,Pc,txrName,a):
                     break
             
                 print(minList[0][m]+' Definite-Minimum Scenario')
-                print(minList[1][n]/total)   
+                print(str(round(minList[1][m]/total*100,1))+'% - found')#minList[1][n]/total)   
                 Lc = 1
 
                 dValue = 3
@@ -843,25 +884,35 @@ def currentImbalanceDecomposition(Pa,Pb,Pc,txrName,a):
                 if Lc == 1:
                     break
                 elif k == 8:
-                    print('Random scenario: Cannot be decomposed')
+                    print('Random scenario - Cannot be decomposed')
 
                     SIB = np.array([np.zeros(len(Pa)),np.zeros(len(Pa)),np.zeros(len(Pa))]).T
                     RIB = np.array([np.zeros(len(Pa)),np.zeros(len(Pa)),np.zeros(len(Pa))]).T
                     DPIB = [850653]
 
                     #for i in range(6):
-                    #
-                    minFit = np.array(['Minimum:',str(round(max(minList[1][0]/total,minList[1][1]/total,minList[1][2]/total)*100,1))])
-                    maxFit = np.array(['Maximum:',str(round(max(maxList[1][0]/total,maxList[1][1]/total,maxList[1][2]/total)*100,1))])
-                    ordFit = np.array(['Order:',str(round(max((maxList[1][0]-minList[1][0])/total,(maxList[1][1]-minList[1][0])/total,
-                                                       (maxList[1][2]-minList[1][0])/total,(maxList[1][0]-minList[1][1])/total,
-                                                       (maxList[1][1]-minList[1][1])/total,(maxList[1][2]-minList[1][1])/total,
-                                                       (maxList[1][0]-minList[1][2])/total,(maxList[1][1]-minList[1][2])/total,
-                                                       (maxList[1][2]-minList[1][2])/total)*100,1))])
 
+                    #(maxList[1][m]+minList[1][n])/total*100,1)
+
+                    #maxList = [['Max A', 'Max B', 'Max C'],[mxa, mxb, mxc],['Pa','Pb','Pc']]
+                    #minList = [['Min A', 'Min B', 'Min C'],[mna, mnb, mnc],['Pa','Pb','Pc']]
+                    
+                    #
+                    minFit = np.array(['Minimum',str(round(max(minList[1][0]/total,minList[1][1]/total,minList[1][2]/total)*100,1))])
+                    maxFit = np.array(['Maximum',str(round(max(maxList[1][0]/total,maxList[1][1]/total,maxList[1][2]/total)*100,1))])
+                    ordFit = np.array(['Order',str(round(max((maxList[1][0]+minList[1][0])/total,(maxList[1][1]+minList[1][0])/total,
+                                                             (maxList[1][2]+minList[1][0])/total,(maxList[1][0]+minList[1][1])/total,
+                                                             (maxList[1][1]+minList[1][1])/total,(maxList[1][2]+minList[1][1])/total,
+                                                             (maxList[1][0]+minList[1][2])/total,(maxList[1][1]+minList[1][2])/total,
+                                                             (maxList[1][2]+minList[1][2])/total)*100,1))])
+                    #print(minFit)
+                    #print(maxFit)
+                    #print(ordFit)
+                    
                     fitList = np.array([minFit,maxFit,ordFit])
 
-                    randomFit = np.array(['Maximum:','100'])
+                    randomFit = np.array(['Maximum','100']) # these are default values, they are assigned in next few lines
+                    
                     for h in range(3):
                         if fitList[h][1] == max(fitList.T[1]):
                             
@@ -874,8 +925,9 @@ def currentImbalanceDecomposition(Pa,Pb,Pc,txrName,a):
                     minP = round(min(np.median(Pa),np.median(Pb),np.median(Pc)),1)
 
                     scenario = 'Random: '+randomFit[0]
-                    print('random test')
-                    print(a)
+                    
+                    print(scenario)
+                    print(str(randomFit[1])+'% - found')
 
                     dValue = 0
                     
@@ -929,13 +981,13 @@ decompList[0] = ['No. in DF23','TXR Name','Type','50th I Max Phase','50th I Min 
 ##---intialising counters for main script---##
 pCount = 0
 failed = 0
-i = 0
+i = 10
 recordI = i
 start = 0
 
 valueForInput = 100
 
-end = 2#valueForInput - i
+end = 1#valueForInput - i
 g=0
 
 ##---main script prints for number of sites given---##
@@ -955,7 +1007,10 @@ for start in range(end):
         i+=1
         continue
         
-        
+    filePath = 'EQL\\SOUTHEAST\\BRISBANE SOUTH\\SSKSN\\KSN15\\SP54878-B\\NM17178'       #'EQL\\SOUTHEAST\\BRISBANE SOUTH\\SSH22\\LGL3A\\SP1809-G\\SP1809-G-TR1'
+
+    #'EQL\\SOUTHEAST\\BRISBANE SOUTH\\SSKSN\\KSN4\\SP11431-B\\NM08603'  FAULTY METER
+    
     try:
         dataMatrix = dataGrab(filePath,i)
     except AttributeError:
@@ -1011,10 +1066,12 @@ for start in range(end):
             #print(arrDecompList)
 
             decompList = np.vstack((decompList,arrDecompList))
-            print('List updated: '+str(i))
+            print('\nList updated: '+str(i))
             #print(decompList)
-                
-        print('\n---------------------------next monitor---------------------------\n')
+        if start == end:
+            print('\n-------------------------------done-------------------------------\n')
+        else:
+            print('\n---------------------------next monitor---------------------------\n')
         
         i+=1
     except pa.lib.ArrowInvalid:
@@ -1029,7 +1086,7 @@ print('List of Decomposition')
 
 decompDF = pnd.DataFrame(decompList)
 
-nameDF = 'Grujica 24-25 Component Decomposition_{a} to {b}.csv'.format(a=recordI,b=i)
+nameDF = 'Retest Component Decomposition_{a} to {b}.csv'.format(a=recordI,b=i)
 
 decompDF.to_csv(nameDF,',')
 
