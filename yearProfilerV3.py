@@ -5,9 +5,9 @@
 # unbalance in LV networks (downstream of a distribution transformer)
 #
 # This script was written as part of a continued student placement with Energy
-# Queensland during part-time work 2024. Thankyou. Cody.
+# Queensland during part-time work 2024. Thankyou. -Cody
 #
-# V2.1 - 27/3/24
+# V3 - 11/04/24
 
 
 from matplotlib import pyplot as plt
@@ -37,20 +37,42 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 # --- main ---
 
 
-data = pl.read_csv("customerDataTX1.csv",separator=",",infer_schema_length=200000)
+data = pl.read_csv("customerDataRand.csv",separator=",",infer_schema_length=200000)
 
 dataSolar = data.filter((pl.col("NMISuffix") == 'B1'))# | (pl.col("NMISuffix") == 'B2'))
 
-data = data.filter(pl.col("NMISuffix") == 'E1')
+data = data.filter((pl.col("NMISuffix") == 'E1'))# | (pl.col("NMISuffix") == 'E2'))
 
 
 #for load
 partForFollowing = data.with_columns(DT = pl.col('Date Time').str.to_datetime().cast(pl.Datetime)).sort('DT')
+
+NMIpartition = partForFollowing.partition_by("NMI", maintain_order=True) # <- change to time to output 1 day...\
+
+print('printing')
+print(NMIpartition)
+print(len(NMIpartition))
+#print(str(NMIpartition[1][0,0]))
+for iterate in range(len(NMIpartition)):
+    NMIpartition2 = NMIpartition[iterate].partition_by("NMISuffix", maintain_order=True) # <- change to time to output 1 day...\
+    for suffIterate in range(len(NMIpartition2)):
+        
+        
+        path = 'NMI Loads 3\\' + str(NMIpartition2[suffIterate][0,0]) + ' - ' + str(NMIpartition2[suffIterate][0,1])+'.csv'
+        NMIpartition2[suffIterate].write_csv(path,separator=",")
+
+
+
+stop
+
+
 datetimePartition = partForFollowing.partition_by("Day Time", maintain_order=True) # <- change to time to output 1 day...\
 
 #for solar
 partForFollowingSol = dataSolar.with_columns(DT = pl.col('Date Time').str.to_datetime().cast(pl.Datetime)).sort('DT')
 datetimePartitionSol = partForFollowingSol.partition_by("Day Time", maintain_order=True) # <- change to time to output 1 day...\
+
+
 
 numpyEnergy = np.zeros(len(datetimePartition))
 numpyEnergyLoad = np.zeros(len(datetimePartition))
@@ -59,8 +81,9 @@ numpyDateTime = np.zeros(len(datetimePartition)).astype(str)
 
 
 with PI.PIAFDatabase(database="PQ Monitors") as database:
-        
-    element = database.descendant('EQL\\SOUTHEAST\\BRISBANE SOUTH\\SSH22\LGL3A\\SP1809-G\\SP1809-G-TR1')    #'EQL\\SOUTHEAST\\BRISBANE SOUTH\\SSH22\LGL3A\\SP1809-G\\SP1809-G-TR1' TX1
+
+    filePath = 'EQL\\SOUTHEAST\\BRISBANE NORTH\\SSACR\\ACR2\\SC21162-C\\NM30558'   
+    element = database.descendant(filePath)    #'EQL\\SOUTHEAST\\BRISBANE SOUTH\\SSH22\LGL3A\\SP1809-G\\SP1809-G-TR1' TX1
     attvalues = iter(element.attributes.values())                       #'EQL\\SOUTHEAST\\BRISBANE SOUTH\\SSKSN\\KSN15\\SP54878-B\\NM17178'# THIS IS ON EXISTING TRANSFORMER.... it had reverse power flow sp1809-g
 
     attList = [next(attvalues),next(attvalues),next(attvalues),next(attvalues),next(attvalues),
@@ -86,12 +109,17 @@ with PI.PIAFDatabase(database="PQ Monitors") as database:
     ##---search and assign Voltage and Current data to matrix---##
     for att in range(len(attList)):
 
-        if attList[att].name == 'P': #change to P and add the two values?   #change to P? ---- changed to P when added solar (whats B2 and B1... is B1 solar and B2 generator or smthn?)
+        if attList[att].name == 'CUR_A': #change to P and add the two values?   #change to P? ---- changed to P when added solar (whats B2 and B1... is B1 solar and B2 generator or smthn?)
             S = attList[att].interpolated_values(startT1,endT1,intT)
+        if attList[att].name == 'CUR_B':
+            S_b = attList[att].interpolated_values(startT1,endT1,intT)
+        if attList[att].name == 'CUR_C':
+            S_c = attList[att].interpolated_values(startT1,endT1,intT)
 
 
 sPandas = pd.DataFrame(S)
-
+sBPandas = pd.DataFrame(S_b)
+sCPandas = pd.DataFrame(S_c)
 
 ### ----- Percentile Profiling ----- ###
 
@@ -117,7 +145,12 @@ elif countType == 'HIGH':
 print('\n{a} Resolution has been selected\n'.format(a=countType))
 
 S = sPandas.to_numpy()/1000
-sPolars = pl.from_pandas(sPandas)/1000
+S_b = sBPandas.to_numpy()/1000
+S_c = sCPandas.to_numpy()/1000
+
+S = np.add(S,S_b,S_c)
+
+sPolars = pd.DataFrame(S)
 
 S[S<0] = 0
 
@@ -268,7 +301,7 @@ outputData = dtValues.hstack(percentileValues)
 
 print(outputData)#.with_columns(DT = pl.col('Date Time').str.to_datetime().cast(pl.Datetime)).sort('DT'))
 
-outputData.write_csv('Yearly Profile V2.1 (Profiled with Deviation) for WORKED TX2.csv')
+outputData.write_csv('Yearly Profile V2.1 (Profiled with Deviation) for rand. txr.csv')
 
 
 ### Plotting of 'best' curve for visualisation
